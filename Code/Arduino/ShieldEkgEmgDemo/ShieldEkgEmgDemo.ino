@@ -45,6 +45,8 @@ struct Olimexino328_packet
 /**********************************************************/
 #include <compat/deprecated.h>
 #include <FlexiTimer2.h>
+#include "Bluetooth.h"
+
 //http://www.arduino.cc/playground/Main/FlexiTimer2
 
 // All definitions
@@ -119,13 +121,26 @@ void setup() {
  emgData[5] = 0;
  
  // Serial Port
- Serial.begin(57600);
+ Serial.begin(115200);
  //Set speed to 57600 bps
  
  // MCU sleep mode = idle.
  //outb(MCUCR,(inp(MCUCR) | (1<<SE)) & (~(1<<SM0) | ~(1<<SM1) | ~(1<<SM2)));
+    interrupts();  // Enable all interrupts after initialization has been completed
+ //for bluetooth
+  //Init; 115200 is the rate at which other devices should connect to MOD-BT.
+    BT_init(115200);
+  
+  //Disable the echo
+    BT_echoOff();
+  		
+  //Allow other devices to auto-connect to MOD-BT
+    BT_setAutoConnection();
+  		
+  //Start the server
+    BT_start(); 
  
- interrupts();  // Enable all interrupts after initialization has been completed
+ 
 }
 
 unsigned int getInt(volatile unsigned char high_byte, volatile unsigned char low_byte)
