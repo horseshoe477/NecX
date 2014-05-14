@@ -45,6 +45,7 @@ struct Olimexino328_packet
 /**********************************************************/
 #include <compat/deprecated.h>
 #include <FlexiTimer2.h>
+
 //http://www.arduino.cc/playground/Main/FlexiTimer2
 
 // All definitions
@@ -57,13 +58,10 @@ struct Olimexino328_packet
 #define CAL_SIG 9
 
 // Global constants and variables
-volatile unsigned char TXBuf[PACKETLEN];  //The transmission packet
-volatile unsigned char TXIndex;           //Next byte to write in the transmission packet.
 volatile unsigned char CurrentCh;         //Current channel being sampled.
 volatile unsigned char counter = 0;	  //Additional divider used to generate CAL_SIG
 volatile unsigned int ADC_Value = 0;	  //ADC current value
-
-volatile unsigned int emgData[NUMCHANNELS]
+volatile unsigned int emgData[NUMCHANNELS];
 
 //~~~~~~~~~~
 // Functions
@@ -83,7 +81,6 @@ void Toggle_LED1(void){
  
 }
 
-
 /****************************************************/
 /*  Function name: toggle_GAL_SIG                   */
 /*  Parameters                                      */
@@ -97,7 +94,6 @@ void toggle_GAL_SIG(void){
  else{ digitalWrite(CAL_SIG, HIGH); }
  
 }
-
 
 /****************************************************/
 /*  Function name: setup                            */
@@ -115,43 +111,7 @@ void setup() {
  digitalWrite(LED1,LOW); //Setup LED1 state
  pinMode(CAL_SIG, OUTPUT);
  
- //Write packet header and footer
- TXBuf[0] = 0xa5;    //Sync 0
- TXBuf[1] = 0x5a;    //Sync 1
- TXBuf[2] = 2;       //Protocol version
- TXBuf[3] = 0;       //Packet counter
- TXBuf[4] = 0x02;    //CH1 High Byte
- TXBuf[5] = 0x00;    //CH1 Low Byte
- TXBuf[6] = 0x02;    //CH2 High Byte
- TXBuf[7] = 0x00;    //CH2 Low Byte
- TXBuf[8] = 0x02;    //CH3 High Byte
- TXBuf[9] = 0x00;    //CH3 Low Byte
- TXBuf[10] = 0x02;   //CH4 High Byte
- TXBuf[11] = 0x00;   //CH4 Low Byte
- TXBuf[12] = 0x02;   //CH5 High Byte
- TXBuf[13] = 0x00;   //CH5 Low Byte
- TXBuf[14] = 0x02;   //CH6 High Byte
- TXBuf[15] = 0x00;   //CH6 Low Byte 
- TXBuf[2 * NUMCHANNELS + HEADERLEN] =  0x01;	// Switches state
-
- // Timer2
- // Timer2 is used to setup the analag channels sampling frequency and packet update.
- // Whenever interrupt occures, the current read packet is sent to the PC
- // In addition the CAL_SIG is generated as well, so Timer1 is not required in this case!
- FlexiTimer2::set(TIMER2VAL, Timer2_Overflow_ISR);
- FlexiTimer2::start();
- 
- // Serial Port
- Serial.begin(57600);
- //Set speed to 57600 bps
- 
- // MCU sleep mode = idle.
- //outb(MCUCR,(inp(MCUCR) | (1<<SE)) & (~(1<<SM0) | ~(1<<SM1) | ~(1<<SM2)));
- 
- interrupts();  // Enable all interrupts after initialization has been completed
- 
- 
- 
+ // Emg Data (6 channels)
  emgData[0] = 0;
  emgData[1] = 0;
  emgData[2] = 0;
@@ -159,73 +119,21 @@ void setup() {
  emgData[4] = 0;
  emgData[5] = 0;
  
+ // Serial Port
+ Serial.begin(57600);
+ //Set speed to 57600 bps
  
+ // MCU sleep mode = idle.
+ //outb(MCUCR,(inp(MCUCR) | (1<<SE)) & (~(1<<SM0) | ~(1<<SM1) | ~(1<<SM2)));
+    interrupts();  // Enable all interrupts after initialization has been completed
+
  
- delay(10);
 }
 
 unsigned int getInt(volatile unsigned char high_byte, volatile unsigned char low_byte)
 {
   unsigned int value = ((high_byte&0x0f)*256)+(low_byte);
   return(value);
-}
-
-/****************************************************/
-/*  Function name: Timer2_Overflow_ISR              */
-/*  Parameters                                      */
-/*    Input   :  No	                            */
-/*    Output  :  No                                 */
-/*    Action: Determines ADC sampling frequency.    */
-/****************************************************/
-void Timer2_Overflow_ISR()
-{
-  // Toggle LED1 with ADC sampling frequency /2
-  Toggle_LED1();
-  
-  //Read the 6 ADC inputs and store current values in Packet
-  for(CurrentCh=0;CurrentCh<6;CurrentCh++){
-    ADC_Value = analogRead(CurrentCh);
-    TXBuf[((2*CurrentCh) + HEADERLEN)] = ((unsigned char)((ADC_Value & 0xFF00) >> 8));	// Write High Byte
-    TXBuf[((2*CurrentCh) + HEADERLEN + 1)] = ((unsigned char)(ADC_Value & 0x00FF));	// Write Low Byte
-  }
-
-  	 
-  // Send Packet
-  for(TXIndex=0;TXIndex<17;TXIndex++){
-    Serial.write(TXBuf[TXIndex]);
-  }
-  
-  
-  // Get Channel data
-  unsigned int vCh1 = getInt(TXBuf[4],TXBuf[5]);    // Ch1
-  unsigned int vCh2 = getInt(TXBuf[6],TXBuf[7]);    // Ch2
-  unsigned int vCh3 = getInt(TXBuf[8],TXBuf[9]);    // Ch3
-  /*unsigned int vCh4 = getInt(TXBuf[10],TXBuf[11]);  // Ch4
-  unsigned int vCh5 = getInt(TXBuf[12],TXBuf[13]);  // Ch5
-  unsigned int vCh6 = getInt(TXBuf[14],TXBuf[15]);  // Ch6
-  */
-  
-  /*
-  //Serial.println(vCh1);
-  Serial.print(vCh1, DEC);
-  Serial.print(",");
-  Serial.print(vCh2, DEC);
-  Serial.print(",");
-  Serial.println(vCh3, DEC);
-  
-  delay(20);
-  */
-  
-  
-  // Increment the packet counter
-  TXBuf[3]++;			
-  
-  // Generate the CAL_SIGnal
-  counter++;		// increment the devider counter
-  if(counter == 12){	// 250/12/2 = 10.4Hz ->Toggle frequency
-    counter = 0;
-    toggle_GAL_SIG();	// Generate CAL signal with frequ ~10Hz
-  }
 }
 
 
@@ -237,7 +145,28 @@ void Timer2_Overflow_ISR()
 /*    Action: Puts MCU into sleep mode.             */
 /****************************************************/
 void loop() {
+   // Toggle LED1 with ADC sampling frequency /2
+  Toggle_LED1();
   
- __asm__ __volatile__ ("sleep");
+  //Read the 6 ADC inputs and store current values in Packet
+  for(CurrentCh=0;CurrentCh<6;CurrentCh++){
+    ADC_Value = analogRead(CurrentCh);
+    emgData[CurrentCh] = ADC_Value;
+  }
+
+  Serial.print(emgData[0]);
+  Serial.print(",");
+  Serial.print(emgData[1]);
+  Serial.print(",");
+  Serial.println(emgData[2]);
+  
+  delay(TIMER2VAL*2);
+  
+  // Generate the CAL_SIGnal
+  counter++;		// increment the devider counter
+  if(counter == 12){	// 250/12/2 = 10.4Hz ->Toggle frequency
+    counter = 0;
+    toggle_GAL_SIG();	// Generate CAL signal with frequ ~10Hz
+  }
  
 }
