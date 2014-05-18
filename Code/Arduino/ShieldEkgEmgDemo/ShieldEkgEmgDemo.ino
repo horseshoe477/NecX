@@ -106,7 +106,10 @@ void toggle_GAL_SIG(void){
 void setup() {
 
  noInterrupts();  // Disable all interrupts before initialization
- 
+
+//Switch to external AREF to fix bug!
+analogReference(EXTERNAL);
+
  // LED1
  pinMode(LED1, OUTPUT);  //Setup LED1 direction
  digitalWrite(LED1,LOW); //Setup LED1 state
@@ -127,6 +130,7 @@ void setup() {
  // MCU sleep mode = idle.
  //outb(MCUCR,(inp(MCUCR) | (1<<SE)) & (~(1<<SM0) | ~(1<<SM1) | ~(1<<SM2)));
     interrupts();  // Enable all interrupts after initialization has been completed
+ 
  //for bluetooth
   //Init; 115200 is the rate at which other devices should connect to MOD-BT.
     BT_init(115200);
