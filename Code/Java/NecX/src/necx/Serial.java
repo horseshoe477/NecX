@@ -18,7 +18,8 @@ public class Serial implements SerialPortEventListener
 	SerialPort serialPort;
         String strCfgPath = "./port.cfg";
 	private static final String PORT_NAMES[] = { 
-			"/dev/tty.usbserial-A9C7BPLT",   // Mac OS X
+			//"/dev/tty.usbserial-A9C7BPLT",   // Mac OS X
+                        "/dev/tty.OLIMEXMOD-BT-SerialPort",
 			"/dev/ttyUSB0",                  // Linux
 			"COM3",// in CSE 409: "COM4",    // Windows
                         };
@@ -28,7 +29,7 @@ public class Serial implements SerialPortEventListener
         private BufferedReader br;
 	private OutputStream output;
 	private static final int TIME_OUT = 2000;   // Milliseconds to block while waiting for port open
-	private static final int DATA_RATE = 57600;  //Default bits per second for COM port
+	private static final int DATA_RATE = 115200;  //Default bits per second for COM port
         
         private Mainframe parent;
 
@@ -155,7 +156,7 @@ public class Serial implements SerialPortEventListener
                 try{
                     String strIn = br.readLine();
                     String[] strPara = strIn.split(",");
-                    if(strPara.length != 3){
+                    if(strPara.length != 2){
                         System.out.println("[Serial error]: " + strIn);
                         return;
                     }
@@ -171,7 +172,7 @@ public class Serial implements SerialPortEventListener
                     }
                     
                     // Update data to window interface
-                    parent.setEMGData_From_SerialPort(strPara[0], strPara[1], strPara[2]);
+                    parent.setEMGData_From_SerialPort(strPara[0], strPara[1]);
                 } 
                 catch (Exception e) {
                     e.printStackTrace();
